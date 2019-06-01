@@ -635,6 +635,10 @@ function generateTTX() {
     ttFont.att("ttLibVersion", "3.0");
 
     if (isSbix) {
+        // headers stolen from https://github.com/RoelN/ChromaCheck/tree/master/src
+        var width = 800; // based on Apple Color Emoji, and ChromaCheck
+        var kerning = 40;
+
         var maxp = ttFont.ele("maxp");
         maxp.ele("tableVersion", {value: "0x10000"});
         maxp.ele("numGlyphs", {value: glyphs.length});
@@ -654,6 +658,7 @@ function generateTTX() {
 
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
+        glyphOrder.ele("GlyphID", { id: i++, name: '.notdef' });
         glyphs.forEach(glyph => {
             glyphOrder.ele("GlyphID", {
                 id: i++,
@@ -661,12 +666,54 @@ function generateTTX() {
             })
         });
 
+        var head = ttFont.ele("head");
+        head.ele("tableVersion", {value: "1.0"});
+        head.ele("fontRevision", {value: "1.0"});
+        head.ele("checkSumAdjustment", {value: "0x00000000"}); // fixme
+        head.ele("magicNumber", {value: "0xdeadbeef"}); // fixme
+        head.ele("flags", {value: "00000000 00011011"}); // xxx: check these
+        head.ele("unitsPerEm", {value: width});
+        head.ele("created", {value: "Wed Jun 01 20:43:00 2019"});
+        head.ele("modified", {value: "Wed Jun 01 20:43:00 2019"});
+        head.ele("xMin", {value: "0"});
+        head.ele("yMin", {value: "0"});
+        head.ele("xMax", {value: width});
+        head.ele("yMax", {value: width});
+        head.ele("macStyle", {value: "00000000 00000000"});
+        head.ele("lowestRecPPEM", {value: "8"});
+        head.ele("fontDirectionHint", {value: "2"});
+        head.ele("indexToLocFormat", {value: "0"});
+        head.ele("glyphDataFormat", {value: "0"});
+
+        var hhea = ttFont.ele("hhea");
+        hhea.ele("tableVersion", {value: "0x00010000"});
+        hhea.ele("ascent", {value: width});
+        hhea.ele("descent", {value: "0"});
+        hhea.ele("lineGap", {value: "0"});
+        hhea.ele("advanceWidthMax", {value: width});
+        hhea.ele("minLeftSideBearing", {value: "0"});
+        hhea.ele("minRightSideBearing", {value: "0"});
+        hhea.ele("xMaxExtent", {value: width});
+        hhea.ele("caretSlopeRise", {value: "1"});
+        hhea.ele("caretSlopeRun", {value: "0"});
+        hhea.ele("caretOffset", {value: "0"});
+        hhea.ele("reserved0", {value: "0"});
+        hhea.ele("reserved1", {value: "0"});
+        hhea.ele("reserved2", {value: "0"});
+        hhea.ele("reserved3", {value: "0"});
+        hhea.ele("metricDataFormat", {value: "0"});
+        hhea.ele("numberOfHMetrics", {value: "1"});
+
         var cmap = ttFont.ele("cmap");
         cmap.ele("tableVersion", {version: "0"});
-        var cmapFormat4 = cmap.ele("cmap_format_4", {
-            platformID: 3,
-            platEncID: 1,
+        var cmapFormat4 = cmap.ele("cmap_format_12", {
+            platformID: 0,
+            platEncID: 4,
+            format: 12,
+            reserved: 0,
+            length: chars.length,
             language: 0,
+            nGroups: 0, // 265 on Apple Color Emoji
         });
         chars.forEach(ch=>{
             cmapFormat4.ele("map", {
@@ -678,24 +725,26 @@ function generateTTX() {
         var loca = ttFont.ele("loca");
         var glyf = ttFont.ele("glyf");
         var hmtx = ttFont.ele("hmtx");
+        glyf.ele("TTGlyph", { name: '.notdef' });
+        hmtx.ele("mtx", { name: '.notdef', width: width + kerning, lsb: 0 });
         glyphs.forEach(function(glyph) {
             var ttglyph = glyf.ele("TTGlyph", {
                 name: glyph,
                 xMin: 0,
                 yMin: 0,
-                xMax: 1024,
-                yMax: 1024,
+                xMax: width,
+                yMax: width,
             });
             var contour = ttglyph.ele("contour");
-            contour.ele("pt", { x: 0, y: 1024, on: 1 });
-            contour.ele("pt", { x: 1024, y: 1024, on: 1 });
-            contour.ele("pt", { x: 1024, y: 0, on: 1 });
+            contour.ele("pt", { x: 0, y: width, on: 1 });
+            contour.ele("pt", { x: width, y: width, on: 1 });
+            contour.ele("pt", { x: width, y: 0, on: 1 });
             contour.ele("pt", { x: 0, y: 0, on: 1 });
             ttglyph.ele("instructions");
 
             hmtx.ele("mtx", {
                 name: glyph,
-                width: 800,
+                width: width + kerning,
                 lsb: 0,
             })
         });
@@ -704,8 +753,9 @@ function generateTTX() {
         sbix.ele("version", {value: 1});
         sbix.ele("flags", {value: "00000000 00000001"});
         var strike = sbix.ele("strike");
-        strike.ele("ppem", {value: 330});
+        strike.ele("ppem", {value: 72});
         strike.ele("resolution", {value: 72});
+        strike.ele("glyph", { name: '.notdef' });
         chars.forEach(function(ch) {
             var glyph = strike.ele("glyph", {
                 graphicType: "png ",
