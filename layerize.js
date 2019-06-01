@@ -2,8 +2,7 @@ var fs         = require('fs'),
     rmdir      = require('rmdir'),
     unzip      = require('unzip'),
     xmlbuilder = require('xmlbuilder'),
-    xml2js     = require('xml2js'),
-    svgexport  = require('svgexport');
+    xml2js     = require('xml2js');
 
 var sourceZip    = process.argv[2];
 var overridesDir = process.argv[3];
@@ -369,7 +368,7 @@ function recordGradient(g, urlColor) {
     urlColor[id] = color;
 }
 
-async function processFile(fileName, data) {
+function processFile(fileName, data) {
     // strip .svg extension off the name
     var baseName = fileName.replace(".svg", "");
     // Twitter doesn't include the VS16 in the keycap filenames
@@ -382,28 +381,11 @@ async function processFile(fileName, data) {
         baseName = '1f441-fe0f-200d-1f5e8-fe0f';
         console.log(`found mis-named 1f441-200d-1f5e8, renamed to ${baseName}`);
     }
-    
-    var parser = new xml2js.Parser({preserveChildrenOrder: true,
-                                    explicitChildren: true,
-                                    explicitArray: true});
-
-    // Save the original file also for visual comparison
-    fs.writeFileSync(targetDir + "/colorGlyphs/u" + baseName + ".svg", data);
 
     // split name of glyph that corresponds to multi-char ligature
     var unicodes = baseName.split("-");
 
     if (isSbix) {
-        await new Promise(function(resolve, reject) {
-            svgexport.render({
-                'input': targetDir + "/colorGlyphs/u" + baseName + ".svg",
-                'output': targetDir + "/pngs/u" + baseName + ".png",
-            }, function(err) {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
-
         if (unicodes.length == 1) {
             // simple character (single codepoint)
             chars.push({unicode: unicodes[0]});
@@ -414,9 +396,15 @@ async function processFile(fileName, data) {
         unicodes.forEach(function(u) {
             codepoints.push('"u' + u + '": ' + parseInt(u, 16));
         });
-
         return;
     }
+
+    var parser = new xml2js.Parser({preserveChildrenOrder: true,
+                                    explicitChildren: true,
+                                    explicitArray: true});
+
+    // Save the original file also for visual comparison
+    fs.writeFileSync(targetDir + "/colorGlyphs/u" + baseName + ".svg", data);
 
     parser.parseString(data, function (err, result) {
         var paths = [];
@@ -426,12 +414,12 @@ async function processFile(fileName, data) {
         var addToPaths = function(defaultFill, defaultStroke, defaultOpacity,
                                   defaultStrokeWidth, xform, elems) {
             elems.forEach(function (e) {
-                
+
                 if (e['#name'] == 'metadata') {
                     e = undefined;
                     return;
                 }
-                
+
                 if (e['#name'] == 'defs') {
                     if (e['$$'] != undefined) {
                         e['$$'].forEach(function (def) {
@@ -445,12 +433,12 @@ async function processFile(fileName, data) {
                     }
                     return;
                 }
-                
+
                 if (e['#name'] == 'linearGradient') {
                     recordGradient(e, urlColor);
                     return;
                 }
-                
+
                 if (e['$'] == undefined) {
                     e['$'] = {};
                 }
@@ -508,7 +496,7 @@ async function processFile(fileName, data) {
 
                 fill = fill || defaultFill;
                 stroke = stroke || defaultStroke;
-                
+
                 var opacity = (e['$']['opacity'] || 1.0) * defaultOpacity;
 
                 if (e['#name'] == 'g') {
@@ -587,7 +575,7 @@ async function processFile(fileName, data) {
 
             path.paths.forEach(curry(addToXML, svg));
             var svgString = svg.toString();
-            
+
             // see if there's an already-defined component that matches this shape
             var glyphName = components[svgString];
 
@@ -648,7 +636,6 @@ function generateTTX() {
         var strike = sbix.ele("strike");
         strike.ele("ppem", {value: 330});
         strike.ele("resolution", {value: 72});
-        console.log(chars);
         chars.forEach(function(ch) {
             var glyph = strike.ele("glyph", {
                 graphicType: "png ",
@@ -656,14 +643,13 @@ function generateTTX() {
                 originOffsetX: 0,
                 originOffsetY: 0,
             });
-            var data = fs.readFileSync(targetDir + "/pngs/u" + ch.unicode + ".png");
+            var data = fs.readFileSync("72x72/" + ch.unicode + ".png");
             var hex = [];
             for (const byte of data) {
                 hex.push(byte.toString(16).padStart(2, '0'));
             }
             glyph.ele("hexdata", hex.join(''));
         });
-        console.log(ligatures);
         ligatures.forEach(function(lig) {
             var glyph = strike.ele("glyph", {
                 graphicType: "png ",
@@ -671,7 +657,7 @@ function generateTTX() {
                 originOffsetX: 0,
                 originOffsetY: 0,
             });
-            var data = fs.readFileSync(targetDir + "/pngs/u" + lig.unicodes.join("-") + ".png");
+            var data = fs.readFileSync("72x72/" + lig.unicodes.join("-") + ".png");
             var hex = [];
             for (const byte of data) {
                 hex.push(byte.toString(16).padStart(2, '0'));
@@ -773,13 +759,12 @@ function generateTTX() {
     fs.writeFileSync(targetDir + "/codepoints.js", "{\n" + codepoints.join(",\n") + "\n}\n");
 }
 
-async function run() {
+function run() {
     // Delete and re-create target directory, to remove any pre-existing junk
-    rmdir(targetDir, async function() {
+    rmdir(targetDir, function() {
         fs.mkdirSync(targetDir);
         fs.mkdirSync(targetDir + "/glyphs");
         fs.mkdirSync(targetDir + "/colorGlyphs");
-        fs.mkdirSync(targetDir + "/pngs");
 
         // Read glyphs from the "extras" directory
         var extras = fs.readdirSync(extrasDir);
@@ -795,34 +780,30 @@ async function run() {
         var overrides = fs.readdirSync(overridesDir);
 
         // Finally, we're ready to process the images from the main source archive:
-        await new Promise(function(resolve, reject) {
-            fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', async function (e) {
-                var data = "";
-                var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
-                if (e.type == 'File') {
-                    // Check for an override; if present, read that instead
-                    var o = overrides.indexOf(fileName);
-                    if (o >= 0) {
-                        console.log("overriding " + fileName + " with local copy");
-                        data = fs.readFileSync(overridesDir + "/" + fileName);
-                        await processFile(fileName, data);
-                        overrides.splice(o, 1);
-                        e.autodrain();
-                    } else {
-                        e.on("data", function (c) {
-                            data += c.toString();
-                        });
-                        e.on("end", async function () {
-                            await processFile(fileName, data);
-                        });
-                    }
-                } else {
+        fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', function (e) {
+            var data = "";
+            var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
+            if (e.type == 'File') {
+                // Check for an override; if present, read that instead
+                var o = overrides.indexOf(fileName);
+                if (o >= 0) {
+                    console.log("overriding " + fileName + " with local copy");
+                    data = fs.readFileSync(overridesDir + "/" + fileName);
+                    processFile(fileName, data);
+                    overrides.splice(o, 1);
                     e.autodrain();
+                } else {
+                    e.on("data", function (c) {
+                        data += c.toString();
+                    });
+                    e.on("end", function () {
+                        processFile(fileName, data);
+                    });
                 }
-            }).on('close', function() { resolve() });
-        });
-
-        generateTTX();
+            } else {
+                e.autodrain();
+            }
+        }).on('close', generateTTX);
     });
 }
 
