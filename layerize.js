@@ -660,7 +660,21 @@ function generateTTX() {
                 name: glyph,
             })
         });
-/*
+
+        var cmap = ttFont.ele("cmap");
+        cmap.ele("tableVersion", {version: "0"});
+        var cmapFormat4 = cmap.ele("cmap_format_4", {
+            platformID: 3,
+            platEncID: 1,
+            language: 0,
+        });
+        chars.forEach(ch=>{
+            cmapFormat4.ele("map", {
+                code: '0x' + ch.unicode,
+                name: 'u' + ch.unicode,
+            });
+        });
+
         var loca = ttFont.ele("loca");
         var glyf = ttFont.ele("glyf");
         var hmtx = ttFont.ele("hmtx");
@@ -685,7 +699,6 @@ function generateTTX() {
                 lsb: 0,
             })
         });
-*/
 
         var sbix = ttFont.ele("sbix");
         sbix.ele("version", {value: 1});
