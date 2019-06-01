@@ -22,6 +22,7 @@
     "grunt-webfont": "^1.6.0",
     "load-grunt-tasks": "^3.5.2",
     "rmdir": "^1.2.0",
+    "svgexport": "^0.3.2",
     "unzip": "^0.1.11",
     "xml2js": "^0.4.19",
     "xmlbuilder": "^8.2.2"

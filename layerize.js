@@ -2,13 +2,16 @@ var fs         = require('fs'),
     rmdir      = require('rmdir'),
     unzip      = require('unzip'),
     xmlbuilder = require('xmlbuilder'),
-    xml2js     = require('xml2js');
+    xml2js     = require('xml2js'),
+    svgexport  = require('svgexport');
 
 var sourceZip    = process.argv[2];
 var overridesDir = process.argv[3];
 var extrasDir    = process.argv[4];
 var targetDir    = process.argv[5];
 var fontName     = process.argv[6];
+
+var isSbix = true;
 
 if (fontName == undefined) {
     console.error("### Missing font name.");
@@ -366,7 +369,7 @@ function recordGradient(g, urlColor) {
     urlColor[id] = color;
 }
 
-function processFile(fileName, data) {
+async function processFile(fileName, data) {
     // strip .svg extension off the name
     var baseName = fileName.replace(".svg", "");
     // Twitter doesn't include the VS16 in the keycap filenames
@@ -389,7 +392,32 @@ function processFile(fileName, data) {
 
     // split name of glyph that corresponds to multi-char ligature
     var unicodes = baseName.split("-");
-    
+
+    if (isSbix) {
+        await new Promise(function(resolve, reject) {
+            svgexport.render({
+                'input': targetDir + "/colorGlyphs/u" + baseName + ".svg",
+                'output': targetDir + "/pngs/u" + baseName + ".png",
+            }, function(err) {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+
+        if (unicodes.length == 1) {
+            // simple character (single codepoint)
+            chars.push({unicode: unicodes[0]});
+        } else {
+            ligatures.push({unicodes: unicodes});
+            codepoints.push('"u' + unicodes.join("_") + '": -1');
+        }
+        unicodes.forEach(function(u) {
+            codepoints.push('"u' + u + '": ' + parseInt(u, 16));
+        });
+
+        return;
+    }
+
     parser.parseString(data, function (err, result) {
         var paths = [];
         var defs = {};
@@ -589,13 +617,13 @@ function processFile(fileName, data) {
             ligatures.push({unicodes: unicodes, components: layers});
             // create the placeholder glyph for the ligature (to be mapped to a set of color layers)
             fs.writeFileSync(targetDir + "/glyphs/u" + unicodes.join("_") + ".svg",
-                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36"/></svg>');
             codepoints.push('"u' + unicodes.join("_") + '": -1');
         }
         unicodes.forEach(function(u) {
             // make sure we have a placeholder glyph for the individual character, or for each component of the ligature
             fs.writeFileSync(targetDir + "/glyphs/u" + u + ".svg",
-                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36"/></svg>');
             codepoints.push('"u' + u + '": ' + parseInt(u, 16));
         });
     });
@@ -613,39 +641,79 @@ function generateTTX() {
     ttFont.att("sfntVersion", "\\x00\\x01\\x00\\x00");
     ttFont.att("ttLibVersion", "3.0");
 
-    // COLR table records the color layers that make up each colored glyph
-    var COLR = ttFont.ele("COLR");
-    COLR.ele("version", {value: 0});
-    chars.forEach(function(ch) {
-        var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + ch.unicode});
-        ch.components.forEach(function(cmp) {
-            colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+    if (isSbix) {
+        var sbix = ttFont.ele("sbix");
+        sbix.ele("version", {value: 1});
+        sbix.ele("flags", {value: "00000000 00000001"});
+        var strike = sbix.ele("strike");
+        strike.ele("ppem", {value: 330});
+        strike.ele("resolution", {value: 72});
+        console.log(chars);
+        chars.forEach(function(ch) {
+            var glyph = strike.ele("glyph", {
+                graphicType: "png ",
+                name: "u" + ch.unicode,
+                originOffsetX: 0,
+                originOffsetY: 0,
+            });
+            var data = fs.readFileSync(targetDir + "/pngs/u" + ch.unicode + ".png");
+            var hex = [];
+            for (const byte of data) {
+                hex.push(byte.toString(16).padStart(2, '0'));
+            }
+            glyph.ele("hexdata", hex.join(''));
         });
-        layerInfo[ch.unicode] = ch.components.map(function(cmp) { return "u" + cmp.glyphName; });
-    });
-    ligatures.forEach(function(lig) {
-        var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + lig.unicodes.join("_")});
-        lig.components.forEach(function(cmp) {
-            colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+        console.log(ligatures);
+        ligatures.forEach(function(lig) {
+            var glyph = strike.ele("glyph", {
+                graphicType: "png ",
+                name: "u" + lig.unicodes.join("_"),
+                originOffsetX: 0,
+                originOffsetY: 0,
+            });
+            var data = fs.readFileSync(targetDir + "/pngs/u" + lig.unicodes.join("-") + ".png");
+            var hex = [];
+            for (const byte of data) {
+                hex.push(byte.toString(16).padStart(2, '0'));
+            }
+            glyph.ele("hexdata", hex.join(''));
         });
-        layerInfo[lig.unicodes.join("_")] = lig.components.map(function(cmp) { return "u" + cmp.glyphName; });
-    });
-    fs.writeFileSync(targetDir + "/layer_info.json", JSON.stringify(layerInfo, null, 2));
+    }
+    else {
+        // COLR table records the color layers that make up each colored glyph
+        var COLR = ttFont.ele("COLR");
+        COLR.ele("version", {value: 0});
+        chars.forEach(function(ch) {
+            var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + ch.unicode});
+            ch.components.forEach(function(cmp) {
+                colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+            });
+            layerInfo[ch.unicode] = ch.components.map(function(cmp) { return "u" + cmp.glyphName; });
+        });
+        ligatures.forEach(function(lig) {
+            var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + lig.unicodes.join("_")});
+            lig.components.forEach(function(cmp) {
+                colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+            });
+            layerInfo[lig.unicodes.join("_")] = lig.components.map(function(cmp) { return "u" + cmp.glyphName; });
+        });
+        fs.writeFileSync(targetDir + "/layer_info.json", JSON.stringify(layerInfo, null, 2));
 
-    // CPAL table maps color index values to RGB colors
-    var CPAL = ttFont.ele("CPAL");
-    CPAL.ele("version", {value: 0});
-    CPAL.ele("numPaletteEntries", {value: colors.length});
-    var palette = CPAL.ele("palette", {index: 0});
-    var index = 0;
-    colors.forEach(function(c) {
-        if (c.substr(0, 3) == "url") {
-            console.log("unexpected color: " + c);
-            c = "#000000ff";
-        }
-        palette.ele("color", {index: index, value: c});
-        index = index + 1;
-    });
+        // CPAL table maps color index values to RGB colors
+        var CPAL = ttFont.ele("CPAL");
+        CPAL.ele("version", {value: 0});
+        CPAL.ele("numPaletteEntries", {value: colors.length});
+        var palette = CPAL.ele("palette", {index: 0});
+        var index = 0;
+        colors.forEach(function(c) {
+            if (c.substr(0, 3) == "url") {
+                console.log("unexpected color: " + c);
+                c = "#000000ff";
+            }
+            palette.ele("color", {index: index, value: c});
+            index = index + 1;
+        });
+    }
 
     // GSUB table implements the ligature rules for Regional Indicator pairs and emoji-ZWJ sequences
     var GSUB = ttFont.ele("GSUB");
@@ -705,48 +773,57 @@ function generateTTX() {
     fs.writeFileSync(targetDir + "/codepoints.js", "{\n" + codepoints.join(",\n") + "\n}\n");
 }
 
-// Delete and re-create target directory, to remove any pre-existing junk
-rmdir(targetDir, function() {
-    fs.mkdirSync(targetDir);
-    fs.mkdirSync(targetDir + "/glyphs");
-    fs.mkdirSync(targetDir + "/colorGlyphs");
+async function run() {
+    // Delete and re-create target directory, to remove any pre-existing junk
+    rmdir(targetDir, async function() {
+        fs.mkdirSync(targetDir);
+        fs.mkdirSync(targetDir + "/glyphs");
+        fs.mkdirSync(targetDir + "/colorGlyphs");
+        fs.mkdirSync(targetDir + "/pngs");
 
-    // Read glyphs from the "extras" directory
-    var extras = fs.readdirSync(extrasDir);
-    extras.forEach(function(f) {
-        if (f.endsWith(".svg")) {
-            var data = fs.readFileSync(extrasDir + "/" + f);
-            processFile(f, data);
-        }
-    });
-
-    // Get list of glyphs in the "overrides" directory, which will be used to replace
-    // same-named glyphs from the main source archive
-    var overrides = fs.readdirSync(overridesDir);
-
-    // Finally, we're ready to process the images from the main source archive:
-    fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', function (e) {
-        var data = "";
-        var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
-        if (e.type == 'File') {
-            // Check for an override; if present, read that instead
-            var o = overrides.indexOf(fileName);
-            if (o >= 0) {
-                console.log("overriding " + fileName + " with local copy");
-                data = fs.readFileSync(overridesDir + "/" + fileName);
-                processFile(fileName, data);
-                overrides.splice(o, 1);
-                e.autodrain();
-            } else {
-                e.on("data", function (c) {
-                    data += c.toString();
-                });
-                e.on("end", function () {
-                    processFile(fileName, data);
-                });
+        // Read glyphs from the "extras" directory
+        var extras = fs.readdirSync(extrasDir);
+        extras.forEach(function(f) {
+            if (f.endsWith(".svg")) {
+                var data = fs.readFileSync(extrasDir + "/" + f);
+                processFile(f, data);
             }
-        } else {
-            e.autodrain();
-        }
-    }).on('close', generateTTX);
-});
+        });
+
+        // Get list of glyphs in the "overrides" directory, which will be used to replace
+        // same-named glyphs from the main source archive
+        var overrides = fs.readdirSync(overridesDir);
+
+        // Finally, we're ready to process the images from the main source archive:
+        await new Promise(function(resolve, reject) {
+            fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', async function (e) {
+                var data = "";
+                var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
+                if (e.type == 'File') {
+                    // Check for an override; if present, read that instead
+                    var o = overrides.indexOf(fileName);
+                    if (o >= 0) {
+                        console.log("overriding " + fileName + " with local copy");
+                        data = fs.readFileSync(overridesDir + "/" + fileName);
+                        await processFile(fileName, data);
+                        overrides.splice(o, 1);
+                        e.autodrain();
+                    } else {
+                        e.on("data", function (c) {
+                            data += c.toString();
+                        });
+                        e.on("end", async function () {
+                            await processFile(fileName, data);
+                        });
+                    }
+                } else {
+                    e.autodrain();
+                }
+            }).on('close', function() { resolve() });
+        });
+
+        generateTTX();
+    });
+}
+
+run();
