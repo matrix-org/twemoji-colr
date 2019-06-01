@@ -35,6 +35,9 @@ var ligatures = [];
 var colors = [];
 var colorToId = {};
 
+var glyphs = [];
+// list of glyph names
+
 var curry = function(f) {
     var parameters = Array.prototype.slice.call(arguments, 1);
     return function() {
@@ -389,8 +392,10 @@ function processFile(fileName, data) {
         if (unicodes.length == 1) {
             // simple character (single codepoint)
             chars.push({unicode: unicodes[0]});
+            glyphs.push('u' + unicodes[0]);
         } else {
             ligatures.push({unicodes: unicodes});
+            glyphs.push('u' + unicodes.join("_"));
             codepoints.push('"u' + unicodes.join("_") + '": -1');
         }
         unicodes.forEach(function(u) {
@@ -630,6 +635,58 @@ function generateTTX() {
     ttFont.att("ttLibVersion", "3.0");
 
     if (isSbix) {
+        var maxp = ttFont.ele("maxp");
+        maxp.ele("tableVersion", {value: "0x10000"});
+        maxp.ele("numGlyphs", {value: glyphs.length});
+        maxp.ele("maxPoints", {value: glyphs.length});
+        maxp.ele("maxContours", {value: glyphs.length});
+        maxp.ele("maxCompositePoints", {value: 0});
+        maxp.ele("maxCompositeContours", {value: 0});
+        maxp.ele("maxZones", {value: 1});
+        maxp.ele("maxTwilightPoints", {value: 0});
+        maxp.ele("maxStorage", {value: 0});
+        maxp.ele("maxFunctionDefs", {value: 10});
+        maxp.ele("maxInstructionDefs", {value: 0});
+        maxp.ele("maxStackElements", {value: 512});
+        maxp.ele("maxSizeOfInstructions", {value: 24});
+        maxp.ele("maxComponentElements", {value: 0});
+        maxp.ele("maxComponentDepth", {value: 0});
+
+        var glyphOrder = ttFont.ele("GlyphOrder");
+        var i = 0;
+        glyphs.forEach(glyph => {
+            glyphOrder.ele("GlyphID", {
+                id: i++,
+                name: glyph,
+            })
+        });
+/*
+        var loca = ttFont.ele("loca");
+        var glyf = ttFont.ele("glyf");
+        var hmtx = ttFont.ele("hmtx");
+        glyphs.forEach(function(glyph) {
+            var ttglyph = glyf.ele("TTGlyph", {
+                name: glyph,
+                xMin: 0,
+                yMin: 0,
+                xMax: 1024,
+                yMax: 1024,
+            });
+            var contour = ttglyph.ele("contour");
+            contour.ele("pt", { x: 0, y: 1024, on: 1 });
+            contour.ele("pt", { x: 1024, y: 1024, on: 1 });
+            contour.ele("pt", { x: 1024, y: 0, on: 1 });
+            contour.ele("pt", { x: 0, y: 0, on: 1 });
+            ttglyph.ele("instructions");
+
+            hmtx.ele("mtx", {
+                name: glyph,
+                width: 800,
+                lsb: 0,
+            })
+        });
+*/
+
         var sbix = ttFont.ele("sbix");
         sbix.ele("version", {value: 1});
         sbix.ele("flags", {value: "00000000 00000001"});
@@ -736,7 +793,7 @@ function generateTTX() {
         ligatureSets[startGlyph].push({components: components, glyph: glyphName});
     }
     ligatures.forEach(addLigToSet);
-    extraLigatures.forEach(addLigToSet);
+    //extraLigatures.forEach(addLigToSet);
     ligatureSetKeys.sort();
     ligatureSetKeys.forEach(function(glyph) {
         var ligatureSet = ligatureSubst.ele("LigatureSet", {glyph: glyph});
