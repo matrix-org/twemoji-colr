@@ -38,6 +38,32 @@ var colorToId = {};
 var glyphs = [];
 // list of glyph names
 
+var placeholderGlyphs = [
+    'u23', // #
+    'u2a', // *
+    'u30', // 0
+    'u31', // 1
+    'u32', // 2
+    'u33', // 3
+    'u34', // 4
+    'u35', // 5
+    'u36', // 6
+    'u37', // 7
+    'u38', // 8
+    'u39', // 9
+    'ufe0f', // VARIATION SELECTOR-16
+    'u200d', // ZWJ
+    'u20e3', // COMBINING ENCLOSING KEYCAP
+    'u1f9b0', // RED HAIR
+    'u1f9b1', // CURLY HAIR
+    'u1f9b2', // BALD
+    'u1f9b3', // WHITE HAIR
+];
+
+for (var c=0xe0061; c<=0xe007f; c++) {
+    placeholderGlyphs.push('u' + c.toString(16));
+}
+
 var curry = function(f) {
     var parameters = Array.prototype.slice.call(arguments, 1);
     return function() {
@@ -378,10 +404,13 @@ function processFile(fileName, data) {
     if (/^[23][0-9a]-20e3$/.test(baseName)) {
         var orig = baseName;
         baseName = baseName.replace('-20e3', '-fe0f-20e3');
+        fs.symlink(`${orig}.png`, `72x72/${baseName}.png`, ()=>{});
         console.log(`found mis-named keycap ${orig}, renamed to ${baseName}`);
     } else if (baseName == '1f441-200d-1f5e8') {
         // ...or in the "eye in speech bubble"'s
+        var orig = baseName;
         baseName = '1f441-fe0f-200d-1f5e8-fe0f';
+        fs.symlink(`${orig}.png`, `72x72/${baseName}.png`, ()=>{});
         console.log(`found mis-named 1f441-200d-1f5e8, renamed to ${baseName}`);
     }
 
@@ -659,6 +688,9 @@ function generateTTX() {
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
         glyphOrder.ele("GlyphID", { id: i++, name: '.notdef' });
+        placeholderGlyphs.forEach(glyph => {
+            glyphOrder.ele("GlyphID", { id: i++, name: glyph });
+        });
         glyphs.forEach(glyph => {
             glyphOrder.ele("GlyphID", {
                 id: i++,
@@ -726,7 +758,13 @@ function generateTTX() {
         var glyf = ttFont.ele("glyf");
         var hmtx = ttFont.ele("hmtx");
         glyf.ele("TTGlyph", { name: '.notdef' });
+        placeholderGlyphs.forEach(glyph => {
+            glyf.ele("TTGlyph", { name: glyph });
+        });
         hmtx.ele("mtx", { name: '.notdef', width: width + kerning, lsb: 0 });
+        placeholderGlyphs.forEach(glyph => {
+            hmtx.ele("mtx", { name: glyph, width: width + kerning, lsb: 0 });
+        });
         glyphs.forEach(function(glyph) {
             var ttglyph = glyf.ele("TTGlyph", {
                 name: glyph,
@@ -856,7 +894,7 @@ function generateTTX() {
         ligatureSets[startGlyph].push({components: components, glyph: glyphName});
     }
     ligatures.forEach(addLigToSet);
-    //extraLigatures.forEach(addLigToSet);
+    extraLigatures.forEach(addLigToSet);
     ligatureSetKeys.sort();
     ligatureSetKeys.forEach(function(glyph) {
         var ligatureSet = ligatureSubst.ele("LigatureSet", {glyph: glyph});
