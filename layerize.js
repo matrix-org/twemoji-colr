@@ -759,52 +759,48 @@ function generateTTX() {
     fs.writeFileSync(targetDir + "/codepoints.js", "{\n" + codepoints.join(",\n") + "\n}\n");
 }
 
-function run() {
-    // Delete and re-create target directory, to remove any pre-existing junk
-    rmdir(targetDir, function() {
-        fs.mkdirSync(targetDir);
-        fs.mkdirSync(targetDir + "/glyphs");
-        fs.mkdirSync(targetDir + "/colorGlyphs");
+// Delete and re-create target directory, to remove any pre-existing junk
+rmdir(targetDir, function() {
+    fs.mkdirSync(targetDir);
+    fs.mkdirSync(targetDir + "/glyphs");
+    fs.mkdirSync(targetDir + "/colorGlyphs");
 
-        // Read glyphs from the "extras" directory
-        var extras = fs.readdirSync(extrasDir);
-        extras.forEach(function(f) {
-            if (f.endsWith(".svg")) {
-                var data = fs.readFileSync(extrasDir + "/" + f);
-                processFile(f, data);
-            }
-        });
-
-        // Get list of glyphs in the "overrides" directory, which will be used to replace
-        // same-named glyphs from the main source archive
-        var overrides = fs.readdirSync(overridesDir);
-
-        // Finally, we're ready to process the images from the main source archive:
-        fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', function (e) {
-            var data = "";
-            var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
-            if (e.type == 'File') {
-                // Check for an override; if present, read that instead
-                var o = overrides.indexOf(fileName);
-                if (o >= 0) {
-                    console.log("overriding " + fileName + " with local copy");
-                    data = fs.readFileSync(overridesDir + "/" + fileName);
-                    processFile(fileName, data);
-                    overrides.splice(o, 1);
-                    e.autodrain();
-                } else {
-                    e.on("data", function (c) {
-                        data += c.toString();
-                    });
-                    e.on("end", function () {
-                        processFile(fileName, data);
-                    });
-                }
-            } else {
-                e.autodrain();
-            }
-        }).on('close', generateTTX);
+    // Read glyphs from the "extras" directory
+    var extras = fs.readdirSync(extrasDir);
+    extras.forEach(function(f) {
+        if (f.endsWith(".svg")) {
+            var data = fs.readFileSync(extrasDir + "/" + f);
+            processFile(f, data);
+        }
     });
-}
 
-run();
+    // Get list of glyphs in the "overrides" directory, which will be used to replace
+    // same-named glyphs from the main source archive
+    var overrides = fs.readdirSync(overridesDir);
+
+    // Finally, we're ready to process the images from the main source archive:
+    fs.createReadStream(sourceZip).pipe(unzip.Parse()).on('entry', function (e) {
+        var data = "";
+        var fileName = e.path.replace(/^.*\//, ""); // strip any directory names
+        if (e.type == 'File') {
+            // Check for an override; if present, read that instead
+            var o = overrides.indexOf(fileName);
+            if (o >= 0) {
+                console.log("overriding " + fileName + " with local copy");
+                data = fs.readFileSync(overridesDir + "/" + fileName);
+                processFile(fileName, data);
+                overrides.splice(o, 1);
+                e.autodrain();
+            } else {
+                e.on("data", function (c) {
+                    data += c.toString();
+                });
+                e.on("end", function () {
+                    processFile(fileName, data);
+                });
+            }
+        } else {
+            e.autodrain();
+        }
+    }).on('close', generateTTX);
+});
