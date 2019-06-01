@@ -665,6 +665,8 @@ function generateTTX() {
 
     if (isSbix) {
         // headers stolen from https://github.com/RoelN/ChromaCheck/tree/master/src
+        // they are also the sfnt-required tables from
+        // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6.html
         var width = 800; // based on Apple Color Emoji, and ChromaCheck
         var kerning = 40;
 
@@ -684,6 +686,21 @@ function generateTTX() {
         maxp.ele("maxSizeOfInstructions", {value: 24});
         maxp.ele("maxComponentElements", {value: 0});
         maxp.ele("maxComponentDepth", {value: 0});
+
+        var name = ttFont.ele("name");
+        name.ele("namerecord", {nameID: 1, platformID: 1, platEncID: 0, langID: '0x0', unicode: 'True'}, 'Twemoji Mozilla')
+        name.ele("namerecord", {nameID: 2, platformID: 1, platEncID: 0, langID: '0x0', unicode: 'True'}, 'Regular')
+
+        // var post = ttFont.ele("post");
+        // post.ele("formatType", {value: "3.0"});
+        // post.ele("italicAngle", {value: "0.0"});
+        // post.ele("underlinePosition", {value: "0"});
+        // post.ele("underlineThickness", {value: "0"});
+        // post.ele("isFixedPitch", {value: "0"});
+        // post.ele("minMemType42", {value: "0"});
+        // post.ele("maxMemType42", {value: "0"});
+        // post.ele("minMemType1", {value: "0"});
+        // post.ele("maxMemType1", {value: "0"});
 
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
@@ -894,7 +911,7 @@ function generateTTX() {
         ligatureSets[startGlyph].push({components: components, glyph: glyphName});
     }
     ligatures.forEach(addLigToSet);
-    extraLigatures.forEach(addLigToSet);
+    //extraLigatures.forEach(addLigToSet);
     ligatureSetKeys.sort();
     ligatureSetKeys.forEach(function(glyph) {
         var ligatureSet = ligatureSubst.ele("LigatureSet", {glyph: glyph});
