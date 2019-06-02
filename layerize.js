@@ -1010,7 +1010,7 @@ function generateTTX() {
         ligatureSets[startGlyph].push({components: components, glyph: glyphName});
     }
     ligatures.forEach(addLigToSet);
-    //extraLigatures.forEach(addLigToSet);
+    extraLigatures.forEach(addLigToSet);
     ligatureSetKeys.sort();
     ligatureSetKeys.forEach(function(glyph) {
         var ligatureSet = ligatureSubst.ele("LigatureSet", {glyph: glyph});
