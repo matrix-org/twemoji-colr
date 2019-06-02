@@ -672,9 +672,9 @@ function generateTTX() {
 
         var maxp = ttFont.ele("maxp");
         maxp.ele("tableVersion", {value: "0x10000"});
-        maxp.ele("numGlyphs", {value: glyphs.length});
-        maxp.ele("maxPoints", {value: glyphs.length});
-        maxp.ele("maxContours", {value: glyphs.length});
+        maxp.ele("numGlyphs", {value: 0}); // let ttx figure it out - 2892
+        maxp.ele("maxPoints", {value: 0}); // let ttx figure it out - 4
+        maxp.ele("maxContours", {value: 0});  // let ttx figure it out -1
         maxp.ele("maxCompositePoints", {value: 0});
         maxp.ele("maxCompositeContours", {value: 0});
         maxp.ele("maxZones", {value: 1});
@@ -688,19 +688,26 @@ function generateTTX() {
         maxp.ele("maxComponentDepth", {value: 0});
 
         var name = ttFont.ele("name");
-        name.ele("namerecord", {nameID: 1, platformID: 1, platEncID: 0, langID: '0x0', unicode: 'True'}, 'Twemoji Mozilla')
-        name.ele("namerecord", {nameID: 2, platformID: 1, platEncID: 0, langID: '0x0', unicode: 'True'}, 'Regular')
+        name.ele("namerecord", {nameID: 0, platformID: 1, platEncID: 0, langID: '0x0'}, '(c) 2016-2018 Mozilla Foundation');
+        name.ele("namerecord", {nameID: 1, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla');
+        name.ele("namerecord", {nameID: 2, platformID: 1, platEncID: 0, langID: '0x0'}, 'Regular');
+        name.ele("namerecord", {nameID: 3, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla SBIX Variant');
+        name.ele("namerecord", {nameID: 4, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla');
+        name.ele("namerecord", {nameID: 5, platformID: 1, platEncID: 0, langID: '0x0'}, 'Version 1.000');
+        name.ele("namerecord", {nameID: 6, platformID: 1, platEncID: 0, langID: '0x0'}, 'TwemojiMozilla');
 
-        // var post = ttFont.ele("post");
-        // post.ele("formatType", {value: "3.0"});
-        // post.ele("italicAngle", {value: "0.0"});
-        // post.ele("underlinePosition", {value: "0"});
-        // post.ele("underlineThickness", {value: "0"});
-        // post.ele("isFixedPitch", {value: "0"});
-        // post.ele("minMemType42", {value: "0"});
-        // post.ele("maxMemType42", {value: "0"});
-        // post.ele("minMemType1", {value: "0"});
-        // post.ele("maxMemType1", {value: "0"});
+        var post = ttFont.ele("post");
+        post.ele("formatType", {value: "2.0"});
+        post.ele("italicAngle", {value: "0.0"});
+        post.ele("underlinePosition", {value: "0"});
+        post.ele("underlineThickness", {value: "0"});
+        post.ele("isFixedPitch", {value: "0"});
+        post.ele("minMemType42", {value: "0"});
+        post.ele("maxMemType42", {value: "0"});
+        post.ele("minMemType1", {value: "0"});
+        post.ele("maxMemType1", {value: "0"});
+        post.ele("psNames");
+        post.ele("extraNames");
 
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
@@ -751,7 +758,7 @@ function generateTTX() {
         hhea.ele("reserved2", {value: "0"});
         hhea.ele("reserved3", {value: "0"});
         hhea.ele("metricDataFormat", {value: "0"});
-        hhea.ele("numberOfHMetrics", {value: "1"});
+        hhea.ele("numberOfHMetrics", {value: glyphs.length + placeholderGlyphs.length + 1});
 
         var cmap = ttFont.ele("cmap");
         cmap.ele("tableVersion", {version: "0"});
