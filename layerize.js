@@ -54,10 +54,6 @@ var placeholderGlyphs = [
     'ufe0f', // VARIATION SELECTOR-16
     'u200d', // ZWJ
     'u20e3', // COMBINING ENCLOSING KEYCAP
-    'u1f9b0', // RED HAIR
-    'u1f9b1', // CURLY HAIR
-    'u1f9b2', // BALD
-    'u1f9b3', // WHITE HAIR
 ];
 
 for (var c=0xe0061; c<=0xe007f; c++) {
