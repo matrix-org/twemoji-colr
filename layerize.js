@@ -664,6 +664,11 @@ function generateTTX() {
     ttFont.att("ttLibVersion", "3.0");
 
     if (isSbix) {
+        placeholderGlyphs.forEach(glyph=>{
+            chars.push({unicode: glyph.slice(1)});
+            glyphs.push(glyph);
+        });
+
         // headers stolen from https://github.com/RoelN/ChromaCheck/tree/master/src
         // they are also the sfnt-required tables from
         // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6.html
@@ -765,9 +770,6 @@ function generateTTX() {
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
         glyphOrder.ele("GlyphID", { id: i++, name: '.notdef' });
-        placeholderGlyphs.forEach(glyph => {
-            glyphOrder.ele("GlyphID", { id: i++, name: glyph });
-        });
         glyphs.forEach(glyph => {
             glyphOrder.ele("GlyphID", {
                 id: i++,
@@ -811,7 +813,7 @@ function generateTTX() {
         hhea.ele("reserved2", {value: "0"});
         hhea.ele("reserved3", {value: "0"});
         hhea.ele("metricDataFormat", {value: "0"});
-        hhea.ele("numberOfHMetrics", {value: glyphs.length + placeholderGlyphs.length + 1});
+        hhea.ele("numberOfHMetrics", {value: glyphs.length + 1}); // +1 for .notdef
 
         var cmap = ttFont.ele("cmap");
         cmap.ele("tableVersion", {version: "0"});
@@ -850,7 +852,7 @@ function generateTTX() {
             nGroups: 0, // fixed up by ttx
         });
         chars.forEach(ch=>{
-            if (ch.length <= 4) {
+            if (ch.unicode.length <= 4) {
                 cmap1.ele("map", {
                     code: '0x' + ch.unicode,
                     name: 'u' + ch.unicode,
@@ -874,13 +876,7 @@ function generateTTX() {
         var glyf = ttFont.ele("glyf");
         var hmtx = ttFont.ele("hmtx");
         glyf.ele("TTGlyph", { name: '.notdef' });
-        placeholderGlyphs.forEach(glyph => {
-            glyf.ele("TTGlyph", { name: glyph });
-        });
         hmtx.ele("mtx", { name: '.notdef', width: width + kerning, lsb: 0 });
-        placeholderGlyphs.forEach(glyph => {
-            hmtx.ele("mtx", { name: glyph, width: width + kerning, lsb: 0 });
-        });
         glyphs.forEach(function(glyph) {
             var ttglyph = glyf.ele("TTGlyph", {
                 name: glyph,
@@ -911,18 +907,23 @@ function generateTTX() {
         strike.ele("resolution", {value: 72});
         strike.ele("glyph", { name: '.notdef' });
         chars.forEach(function(ch) {
-            var glyph = strike.ele("glyph", {
-                graphicType: "png ",
-                name: "u" + ch.unicode,
-                originOffsetX: 0,
-                originOffsetY: 0,
-            });
-            var data = fs.readFileSync("72x72/" + ch.unicode + ".png");
-            var hex = [];
-            for (const byte of data) {
-                hex.push(byte.toString(16).padStart(2, '0'));
+            try {
+                var data = fs.readFileSync("72x72/" + ch.unicode + ".png");
+                var glyph = strike.ele("glyph", {
+                    graphicType: "png ",
+                    name: "u" + ch.unicode,
+                    originOffsetX: 0,
+                    originOffsetY: 0,
+                });
+                var hex = [];
+                for (const byte of data) {
+                    hex.push(byte.toString(16).padStart(2, '0'));
+                }
+                glyph.ele("hexdata", hex.join(''));
             }
-            glyph.ele("hexdata", hex.join(''));
+            catch(e) {
+                strike.ele("glyph", { name: 'u' + ch.unicode });
+            }
         });
         ligatures.forEach(function(lig) {
             var glyph = strike.ele("glyph", {
