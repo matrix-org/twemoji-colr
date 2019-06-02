@@ -696,6 +696,7 @@ function generateTTX() {
         name.ele("namerecord", {nameID: 5, platformID: 1, platEncID: 0, langID: '0x0'}, 'Version 1.000');
         name.ele("namerecord", {nameID: 6, platformID: 1, platEncID: 0, langID: '0x0'}, 'TwemojiMozilla');
 
+        // needed to pass macOS's FontBook validation, at least
         var post = ttFont.ele("post");
         post.ele("formatType", {value: "2.0"});
         post.ele("italicAngle", {value: "0.0"});
@@ -708,6 +709,58 @@ function generateTTX() {
         post.ele("maxMemType1", {value: "0"});
         post.ele("psNames");
         post.ele("extraNames");
+
+        // needed to be rendered as a webfont. yay OS/2.
+        // this taken from the Glyphs.app output of saving the font.
+        var os_2 = ttFont.ele("OS_2");
+        os_2.ele("version", {value: "3"});
+        os_2.ele("xAvgCharWidth", {value: "840"});
+        os_2.ele("usWeightClass", {value: "400"});
+        os_2.ele("usWidthClass", {value: "5"});
+        os_2.ele("fsType", {value: "00000000 00001000"});
+        os_2.ele("ySubscriptXSize", {value: "520"});
+        os_2.ele("ySubscriptYSize", {value: "480"});
+        os_2.ele("ySubscriptXOffset", {value: "0"});
+        os_2.ele("ySubscriptYOffset", {value: "60"});
+        os_2.ele("ySuperscriptXSize", {value: "520"});
+        os_2.ele("ySuperscriptYSize", {value: "480"});
+        os_2.ele("ySuperscriptXOffset", {value: "0"});
+        os_2.ele("ySuperscriptYOffset", {value: "280"});
+        os_2.ele("yStrikeoutSize", {value: "50"});
+        os_2.ele("yStrikeoutPosition", {value: "300"});
+        os_2.ele("sFamilyClass", {value: "0"});
+        os_2.ele("ulUnicodeRange1", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange2", {value: "00000010 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange3", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange4", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("achVendID", {value: "UKWN"});
+        os_2.ele("fsSelection", {value: "00000000 01000000"});
+        os_2.ele("usFirstCharIndex", {value: "32"});
+        os_2.ele("usLastCharIndex", {value: "65535"});
+        os_2.ele("sTypoAscender", {value: "800"});
+        os_2.ele("sTypoDescender", {value: "0"});
+        os_2.ele("sTypoLineGap", {value: "160"});
+        os_2.ele("usWinAscent", {value: "960"});
+        os_2.ele("usWinDescent", {value: "0"});
+        os_2.ele("ulCodePageRange1", {value: "00000000 00000000 00000000 00000001"});
+        os_2.ele("ulCodePageRange2", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("sxHeight", {value: "500"});
+        os_2.ele("sCapHeight", {value: "700"});
+        os_2.ele("usDefaultChar", {value: "0"});
+        os_2.ele("usBreakChar", {value: "32"});
+        os_2.ele("usMaxContext", {value: "8"});
+
+        var panose = os_2.ele("panose");
+        panose.ele("bFamilyType", {value: "0"});
+        panose.ele("bSerifStyle", {value: "0"});
+        panose.ele("bWeight", {value: "5"});
+        panose.ele("bProportion", {value: "0"});
+        panose.ele("bContrast", {value: "0"});
+        panose.ele("bStrokeVariation", {value: "0"});
+        panose.ele("bArmStyle", {value: "0"});
+        panose.ele("bLetterForm", {value: "0"});
+        panose.ele("bMidline", {value: "0"});
+        panose.ele("bXHeight", {value: "0"});
 
         var glyphOrder = ttFont.ele("GlyphOrder");
         var i = 0;
@@ -725,9 +778,9 @@ function generateTTX() {
         var head = ttFont.ele("head");
         head.ele("tableVersion", {value: "1.0"});
         head.ele("fontRevision", {value: "1.0"});
-        head.ele("checkSumAdjustment", {value: "0x00000000"}); // fixme
-        head.ele("magicNumber", {value: "0xdeadbeef"}); // fixme
-        head.ele("flags", {value: "00000000 00011011"}); // xxx: check these
+        head.ele("checkSumAdjustment", {value: "0x00000000"}); // gets fixed up by ttx
+        head.ele("magicNumber", {value: "0x5F0F3CF5"});
+        head.ele("flags", {value: "00000000 00011011"}); // XXX check these
         head.ele("unitsPerEm", {value: width});
         head.ele("created", {value: "Wed Jun 01 20:43:00 2019"});
         head.ele("modified", {value: "Wed Jun 01 20:43:00 2019"});
@@ -762,17 +815,56 @@ function generateTTX() {
 
         var cmap = ttFont.ele("cmap");
         cmap.ele("tableVersion", {version: "0"});
-        var cmapFormat4 = cmap.ele("cmap_format_12", {
+        // apparently we need to dump the table 4 times, first 16-bit, then 32-bit, then again per platform.
+        // <cmap_format_4 platformID="0" platEncID="3" language="0">
+        // <cmap_format_12 platformID="0" platEncID="4" format="12" reserved="0" length="12640" language="0" nGroups="1052">
+        // <cmap_format_4 platformID="3" platEncID="1" language="0">
+        // <cmap_format_12 platformID="3" platEncID="10" format="12" reserved="0" length="12640" language="0" nGroups="1052">
+
+        var cmap1 = cmap.ele("cmap_format_4", {
+            platformID: 0,
+            platEncID: 3,
+            language: 0,
+        });
+        var cmap2 = cmap.ele("cmap_format_12", {
             platformID: 0,
             platEncID: 4,
             format: 12,
             reserved: 0,
-            length: chars.length,
+            length: 0, // fixed up by ttx
             language: 0,
-            nGroups: 0, // 265 on Apple Color Emoji
+            nGroups: 0, // fixed up by ttx
+        });
+        var cmap3 = cmap.ele("cmap_format_4", {
+            platformID: 3,
+            platEncID: 1,
+            language: 0,
+        });
+        var cmap4 = cmap.ele("cmap_format_12", {
+            platformID: 3,
+            platEncID: 10,
+            format: 12,
+            reserved: 0,
+            length: 0, // fixed up by ttx
+            language: 0,
+            nGroups: 0, // fixed up by ttx
         });
         chars.forEach(ch=>{
-            cmapFormat4.ele("map", {
+            if (ch.length <= 4) {
+                cmap1.ele("map", {
+                    code: '0x' + ch.unicode,
+                    name: 'u' + ch.unicode,
+                });
+                cmap3.ele("map", {
+                    code: '0x' + ch.unicode,
+                    name: 'u' + ch.unicode,
+                });
+            }
+            cmap2.ele("map", {
+                code: '0x' + ch.unicode,
+                name: 'u' + ch.unicode,
+            });
+            cmap4.ele("map", {
                 code: '0x' + ch.unicode,
                 name: 'u' + ch.unicode,
             });
