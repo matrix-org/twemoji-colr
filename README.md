@@ -42,6 +42,10 @@ Once the necessary build tools are all in place, simply running
 
 should build the color-emoji font `build/Twemoji Mozilla.ttf` from the source SVG files found in `twe-svg.zip` file and `extras`, `overrides` directories.
 
+N.B. make sure your python is pointed at the right one required by fontforge (e.g. 3.8)
+
+You can then compress this into a WOFF via `woff2_compress`
+
 ## sbix support
 
 This branch contains a fairly ugly attempt to support emitting an sbix font as an alternative
