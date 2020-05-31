@@ -61,7 +61,7 @@ npm install
  * Expand it and symlink the `2/72x72` (or `assets/72x72` for twemoji 13) directory into this checkout
  * Create a new twe-svg.zip: `mv twe-svg.zip twe-svg.zip.old; zip -rj twe-svg.zip twemoji-13.0.0/assets/svg`
  * Check that `isSbix = true` in layerize.js
- * Run the layerize manually:
+ * Run the layerize manually (no need to run `make`):
    `node layerize.js twe-svg.zip overrides extras build twemoji-sbix && ttx -o build/twemoji-sbix.ttf build/twemoji-sbix.ttx`
 
 This involves an awful lot of hardcoded sfnt sections, which have been cargoculted from:
