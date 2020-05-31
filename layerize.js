@@ -739,10 +739,10 @@ function generateTTX() {
         os_2.ele("usFirstCharIndex", {value: "32"});
         os_2.ele("usLastCharIndex", {value: "65535"});
         os_2.ele("sTypoAscender", {value: "800"});
-        os_2.ele("sTypoDescender", {value: "0"});
+        os_2.ele("sTypoDescender", {value: "200"});
         os_2.ele("sTypoLineGap", {value: "160"});
         os_2.ele("usWinAscent", {value: "960"});
-        os_2.ele("usWinDescent", {value: "0"});
+        os_2.ele("usWinDescent", {value: "200"});
         os_2.ele("ulCodePageRange1", {value: "00000000 00000000 00000000 00000001"});
         os_2.ele("ulCodePageRange2", {value: "00000000 00000000 00000000 00000000"});
         os_2.ele("sxHeight", {value: "500"});
@@ -780,8 +780,8 @@ function generateTTX() {
         head.ele("magicNumber", {value: "0x5F0F3CF5"});
         head.ele("flags", {value: "00000000 00011011"}); // XXX check these
         head.ele("unitsPerEm", {value: width});
-        head.ele("created", {value: "Wed Jun 01 20:43:00 2019"});
-        head.ele("modified", {value: "Wed Jun 01 20:43:00 2019"});
+        head.ele("created", {value: "Sun May 31 13:19:00 2020"});
+        head.ele("modified", {value: "Sun May 31 13:19:00 2020"});
         head.ele("xMin", {value: "0"});
         head.ele("yMin", {value: "0"});
         head.ele("xMax", {value: width});
@@ -795,7 +795,7 @@ function generateTTX() {
         var hhea = ttFont.ele("hhea");
         hhea.ele("tableVersion", {value: "0x00010000"});
         hhea.ele("ascent", {value: width});
-        hhea.ele("descent", {value: "0"});
+        hhea.ele("descent", {value: "-200"});
         hhea.ele("lineGap", {value: "0"});
         hhea.ele("advanceWidthMax", {value: width});
         hhea.ele("minLeftSideBearing", {value: "0"});
@@ -882,10 +882,8 @@ function generateTTX() {
                 yMax: width,
             });
             var contour = ttglyph.ele("contour");
-            contour.ele("pt", { x: 0, y: width, on: 1 });
-            contour.ele("pt", { x: width, y: width, on: 1 });
-            contour.ele("pt", { x: width, y: 0, on: 1 });
-            contour.ele("pt", { x: 0, y: 0, on: 1 });
+            contour.ele("pt", { x: 0, y: -100, on: 1 }); // -100 to vertically center within x-height
+            contour.ele("pt", { x: width, y: width - 100, on: 1 });
             ttglyph.ele("instructions");
 
             hmtx.ele("mtx", {
@@ -909,7 +907,7 @@ function generateTTX() {
                     graphicType: "png ",
                     name: "u" + ch.unicode,
                     originOffsetX: 0,
-                    originOffsetY: 0,
+                    originOffsetY: -100,
                 });
                 var hex = [];
                 for (const byte of data) {
