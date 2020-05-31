@@ -739,10 +739,10 @@ function generateTTX() {
         os_2.ele("usFirstCharIndex", {value: "32"});
         os_2.ele("usLastCharIndex", {value: "65535"});
         os_2.ele("sTypoAscender", {value: "800"});
-        os_2.ele("sTypoDescender", {value: "200"});
+        os_2.ele("sTypoDescender", {value: "0"});
         os_2.ele("sTypoLineGap", {value: "160"});
         os_2.ele("usWinAscent", {value: "960"});
-        os_2.ele("usWinDescent", {value: "200"});
+        os_2.ele("usWinDescent", {value: "0"});
         os_2.ele("ulCodePageRange1", {value: "00000000 00000000 00000000 00000001"});
         os_2.ele("ulCodePageRange2", {value: "00000000 00000000 00000000 00000000"});
         os_2.ele("sxHeight", {value: "500"});
@@ -795,7 +795,7 @@ function generateTTX() {
         var hhea = ttFont.ele("hhea");
         hhea.ele("tableVersion", {value: "0x00010000"});
         hhea.ele("ascent", {value: width});
-        hhea.ele("descent", {value: "-200"});
+        hhea.ele("descent", {value: "0"});
         hhea.ele("lineGap", {value: "0"});
         hhea.ele("advanceWidthMax", {value: width});
         hhea.ele("minLeftSideBearing", {value: "0"});
@@ -882,8 +882,12 @@ function generateTTX() {
                 yMax: width,
             });
             var contour = ttglyph.ele("contour");
-            contour.ele("pt", { x: 0, y: -100, on: 1 }); // -100 to vertically center within x-height
-            contour.ele("pt", { x: width, y: width - 100, on: 1 });
+            contour.ele("pt", { x: 0, y: width-100, on: 1 });
+            contour.ele("pt", { x: width, y: width-100, on: 1 });
+            contour.ele("pt", { x: width, y: -100, on: 1 });
+            contour.ele("pt", { x: 0, y: -100, on: 1 });
+            // contour.ele("pt", { x: 0, y: -100, on: 1 }); // -100 to vertically center within x-height
+            // contour.ele("pt", { x: width, y: width - 100, on: 1 });
             ttglyph.ele("instructions");
 
             hmtx.ele("mtx", {
@@ -907,7 +911,7 @@ function generateTTX() {
                     graphicType: "png ",
                     name: "u" + ch.unicode,
                     originOffsetX: 0,
-                    originOffsetY: -100,
+                    originOffsetY: 0,
                 });
                 var hex = [];
                 for (const byte of data) {
