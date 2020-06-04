@@ -10,6 +10,8 @@ var extrasDir    = process.argv[4];
 var targetDir    = process.argv[5];
 var fontName     = process.argv[6];
 
+var isSbix = true;
+
 if (fontName == undefined) {
     console.error("### Missing font name.");
     console.error("### Usage: node " + process.argv[1] + " source-SVGs.zip overrides-dir extras-dir build-dir font-name");
@@ -32,6 +34,31 @@ var ligatures = [];
 
 var colors = [];
 var colorToId = {};
+
+var glyphs = [];
+// list of glyph names
+
+var placeholderGlyphs = [
+    'u23', // #
+    'u2a', // *
+    'u30', // 0
+    'u31', // 1
+    'u32', // 2
+    'u33', // 3
+    'u34', // 4
+    'u35', // 5
+    'u36', // 6
+    'u37', // 7
+    'u38', // 8
+    'u39', // 9
+    'ufe0f', // VARIATION SELECTOR-16
+    'u200d', // ZWJ
+    'u20e3', // COMBINING ENCLOSING KEYCAP
+];
+
+for (var c=0xe0061; c<=0xe007f; c++) {
+    placeholderGlyphs.push('u' + c.toString(16));
+}
 
 var curry = function(f) {
     var parameters = Array.prototype.slice.call(arguments, 1);
@@ -373,13 +400,35 @@ function processFile(fileName, data) {
     if (/^[23][0-9a]-20e3$/.test(baseName)) {
         var orig = baseName;
         baseName = baseName.replace('-20e3', '-fe0f-20e3');
+        fs.symlink(`${orig}.png`, `72x72/${baseName}.png`, ()=>{});
         console.log(`found mis-named keycap ${orig}, renamed to ${baseName}`);
     } else if (baseName == '1f441-200d-1f5e8') {
         // ...or in the "eye in speech bubble"'s
+        var orig = baseName;
         baseName = '1f441-fe0f-200d-1f5e8-fe0f';
+        fs.symlink(`${orig}.png`, `72x72/${baseName}.png`, ()=>{});
         console.log(`found mis-named 1f441-200d-1f5e8, renamed to ${baseName}`);
     }
-    
+
+    // split name of glyph that corresponds to multi-char ligature
+    var unicodes = baseName.split("-");
+
+    if (isSbix) {
+        if (unicodes.length == 1) {
+            // simple character (single codepoint)
+            chars.push({unicode: unicodes[0]});
+            glyphs.push('u' + unicodes[0]);
+        } else {
+            ligatures.push({unicodes: unicodes});
+            glyphs.push('u' + unicodes.join("_"));
+            codepoints.push('"u' + unicodes.join("_") + '": -1');
+        }
+        unicodes.forEach(function(u) {
+            codepoints.push('"u' + u + '": ' + parseInt(u, 16));
+        });
+        return;
+    }
+
     var parser = new xml2js.Parser({preserveChildrenOrder: true,
                                     explicitChildren: true,
                                     explicitArray: true});
@@ -387,9 +436,6 @@ function processFile(fileName, data) {
     // Save the original file also for visual comparison
     fs.writeFileSync(targetDir + "/colorGlyphs/u" + baseName + ".svg", data);
 
-    // split name of glyph that corresponds to multi-char ligature
-    var unicodes = baseName.split("-");
-    
     parser.parseString(data, function (err, result) {
         var paths = [];
         var defs = {};
@@ -398,12 +444,12 @@ function processFile(fileName, data) {
         var addToPaths = function(defaultFill, defaultStroke, defaultOpacity,
                                   defaultStrokeWidth, xform, elems) {
             elems.forEach(function (e) {
-                
+
                 if (e['#name'] == 'metadata') {
                     e = undefined;
                     return;
                 }
-                
+
                 if (e['#name'] == 'defs') {
                     if (e['$$'] != undefined) {
                         e['$$'].forEach(function (def) {
@@ -417,12 +463,12 @@ function processFile(fileName, data) {
                     }
                     return;
                 }
-                
+
                 if (e['#name'] == 'linearGradient') {
                     recordGradient(e, urlColor);
                     return;
                 }
-                
+
                 if (e['$'] == undefined) {
                     e['$'] = {};
                 }
@@ -480,7 +526,7 @@ function processFile(fileName, data) {
 
                 fill = fill || defaultFill;
                 stroke = stroke || defaultStroke;
-                
+
                 var opacity = (e['$']['opacity'] || 1.0) * defaultOpacity;
 
                 if (e['#name'] == 'g') {
@@ -559,7 +605,7 @@ function processFile(fileName, data) {
 
             path.paths.forEach(curry(addToXML, svg));
             var svgString = svg.toString();
-            
+
             // see if there's an already-defined component that matches this shape
             var glyphName = components[svgString];
 
@@ -589,13 +635,13 @@ function processFile(fileName, data) {
             ligatures.push({unicodes: unicodes, components: layers});
             // create the placeholder glyph for the ligature (to be mapped to a set of color layers)
             fs.writeFileSync(targetDir + "/glyphs/u" + unicodes.join("_") + ".svg",
-                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36"/></svg>');
             codepoints.push('"u' + unicodes.join("_") + '": -1');
         }
         unicodes.forEach(function(u) {
             // make sure we have a placeholder glyph for the individual character, or for each component of the ligature
             fs.writeFileSync(targetDir + "/glyphs/u" + u + ".svg",
-                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36"/></svg>');
             codepoints.push('"u' + u + '": ' + parseInt(u, 16));
         });
     });
@@ -613,39 +659,320 @@ function generateTTX() {
     ttFont.att("sfntVersion", "\\x00\\x01\\x00\\x00");
     ttFont.att("ttLibVersion", "3.0");
 
-    // COLR table records the color layers that make up each colored glyph
-    var COLR = ttFont.ele("COLR");
-    COLR.ele("version", {value: 0});
-    chars.forEach(function(ch) {
-        var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + ch.unicode});
-        ch.components.forEach(function(cmp) {
-            colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+    if (isSbix) {
+        placeholderGlyphs.forEach(glyph=>{
+            chars.push({unicode: glyph.slice(1)});
+            glyphs.push(glyph);
         });
-        layerInfo[ch.unicode] = ch.components.map(function(cmp) { return "u" + cmp.glyphName; });
-    });
-    ligatures.forEach(function(lig) {
-        var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + lig.unicodes.join("_")});
-        lig.components.forEach(function(cmp) {
-            colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
-        });
-        layerInfo[lig.unicodes.join("_")] = lig.components.map(function(cmp) { return "u" + cmp.glyphName; });
-    });
-    fs.writeFileSync(targetDir + "/layer_info.json", JSON.stringify(layerInfo, null, 2));
 
-    // CPAL table maps color index values to RGB colors
-    var CPAL = ttFont.ele("CPAL");
-    CPAL.ele("version", {value: 0});
-    CPAL.ele("numPaletteEntries", {value: colors.length});
-    var palette = CPAL.ele("palette", {index: 0});
-    var index = 0;
-    colors.forEach(function(c) {
-        if (c.substr(0, 3) == "url") {
-            console.log("unexpected color: " + c);
-            c = "#000000ff";
-        }
-        palette.ele("color", {index: index, value: c});
-        index = index + 1;
-    });
+        // headers stolen from https://github.com/RoelN/ChromaCheck/tree/master/src
+        // they are also the sfnt-required tables from
+        // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6.html
+        var width = 800; // based on Apple Color Emoji, and ChromaCheck
+        var kerning = 40;
+
+        var maxp = ttFont.ele("maxp");
+        maxp.ele("tableVersion", {value: "0x10000"});
+        maxp.ele("numGlyphs", {value: 0}); // let ttx figure it out - 2892
+        maxp.ele("maxPoints", {value: 0}); // let ttx figure it out - 4
+        maxp.ele("maxContours", {value: 0});  // let ttx figure it out -1
+        maxp.ele("maxCompositePoints", {value: 0});
+        maxp.ele("maxCompositeContours", {value: 0});
+        maxp.ele("maxZones", {value: 1});
+        maxp.ele("maxTwilightPoints", {value: 0});
+        maxp.ele("maxStorage", {value: 0});
+        maxp.ele("maxFunctionDefs", {value: 10});
+        maxp.ele("maxInstructionDefs", {value: 0});
+        maxp.ele("maxStackElements", {value: 512});
+        maxp.ele("maxSizeOfInstructions", {value: 24});
+        maxp.ele("maxComponentElements", {value: 0});
+        maxp.ele("maxComponentDepth", {value: 0});
+
+        var name = ttFont.ele("name");
+        name.ele("namerecord", {nameID: 0, platformID: 1, platEncID: 0, langID: '0x0'}, '(c) 2016-2018 Mozilla Foundation');
+        name.ele("namerecord", {nameID: 1, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla');
+        name.ele("namerecord", {nameID: 2, platformID: 1, platEncID: 0, langID: '0x0'}, 'Regular');
+        name.ele("namerecord", {nameID: 3, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla SBIX Variant');
+        name.ele("namerecord", {nameID: 4, platformID: 1, platEncID: 0, langID: '0x0'}, 'Twemoji Mozilla');
+        name.ele("namerecord", {nameID: 5, platformID: 1, platEncID: 0, langID: '0x0'}, 'Version 1.000');
+        name.ele("namerecord", {nameID: 6, platformID: 1, platEncID: 0, langID: '0x0'}, 'TwemojiMozilla');
+
+        // needed to pass macOS's FontBook validation, at least
+        var post = ttFont.ele("post");
+        post.ele("formatType", {value: "2.0"});
+        post.ele("italicAngle", {value: "0.0"});
+        post.ele("underlinePosition", {value: "0"});
+        post.ele("underlineThickness", {value: "0"});
+        post.ele("isFixedPitch", {value: "0"});
+        post.ele("minMemType42", {value: "0"});
+        post.ele("maxMemType42", {value: "0"});
+        post.ele("minMemType1", {value: "0"});
+        post.ele("maxMemType1", {value: "0"});
+        post.ele("psNames");
+        post.ele("extraNames");
+
+        // needed to be rendered as a webfont. yay OS/2.
+        // this taken from the Glyphs.app output of saving the font.
+        var os_2 = ttFont.ele("OS_2");
+        os_2.ele("version", {value: "3"});
+        os_2.ele("xAvgCharWidth", {value: "840"});
+        os_2.ele("usWeightClass", {value: "400"});
+        os_2.ele("usWidthClass", {value: "5"});
+        os_2.ele("fsType", {value: "00000000 00001000"});
+        os_2.ele("ySubscriptXSize", {value: "520"});
+        os_2.ele("ySubscriptYSize", {value: "480"});
+        os_2.ele("ySubscriptXOffset", {value: "0"});
+        os_2.ele("ySubscriptYOffset", {value: "60"});
+        os_2.ele("ySuperscriptXSize", {value: "520"});
+        os_2.ele("ySuperscriptYSize", {value: "480"});
+        os_2.ele("ySuperscriptXOffset", {value: "0"});
+        os_2.ele("ySuperscriptYOffset", {value: "280"});
+        os_2.ele("yStrikeoutSize", {value: "50"});
+        os_2.ele("yStrikeoutPosition", {value: "300"});
+        os_2.ele("sFamilyClass", {value: "0"});
+        os_2.ele("ulUnicodeRange1", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange2", {value: "00000010 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange3", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("ulUnicodeRange4", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("achVendID", {value: "UKWN"});
+        os_2.ele("fsSelection", {value: "00000000 01000000"});
+        os_2.ele("usFirstCharIndex", {value: "32"});
+        os_2.ele("usLastCharIndex", {value: "65535"});
+        os_2.ele("sTypoAscender", {value: "800"});
+        os_2.ele("sTypoDescender", {value: "0"});
+        os_2.ele("sTypoLineGap", {value: "160"});
+        os_2.ele("usWinAscent", {value: "960"});
+        os_2.ele("usWinDescent", {value: "0"});
+        os_2.ele("ulCodePageRange1", {value: "00000000 00000000 00000000 00000001"});
+        os_2.ele("ulCodePageRange2", {value: "00000000 00000000 00000000 00000000"});
+        os_2.ele("sxHeight", {value: "500"});
+        os_2.ele("sCapHeight", {value: "700"});
+        os_2.ele("usDefaultChar", {value: "0"});
+        os_2.ele("usBreakChar", {value: "32"});
+        os_2.ele("usMaxContext", {value: "8"});
+
+        var panose = os_2.ele("panose");
+        panose.ele("bFamilyType", {value: "0"});
+        panose.ele("bSerifStyle", {value: "0"});
+        panose.ele("bWeight", {value: "5"});
+        panose.ele("bProportion", {value: "0"});
+        panose.ele("bContrast", {value: "0"});
+        panose.ele("bStrokeVariation", {value: "0"});
+        panose.ele("bArmStyle", {value: "0"});
+        panose.ele("bLetterForm", {value: "0"});
+        panose.ele("bMidline", {value: "0"});
+        panose.ele("bXHeight", {value: "0"});
+
+        var glyphOrder = ttFont.ele("GlyphOrder");
+        var i = 0;
+        glyphOrder.ele("GlyphID", { id: i++, name: '.notdef' });
+        glyphs.forEach(glyph => {
+            glyphOrder.ele("GlyphID", {
+                id: i++,
+                name: glyph,
+            })
+        });
+
+        var head = ttFont.ele("head");
+        head.ele("tableVersion", {value: "1.0"});
+        head.ele("fontRevision", {value: "1.0"});
+        head.ele("checkSumAdjustment", {value: "0x00000000"}); // gets fixed up by ttx
+        head.ele("magicNumber", {value: "0x5F0F3CF5"});
+        head.ele("flags", {value: "00000000 00011011"}); // XXX check these
+        head.ele("unitsPerEm", {value: width});
+        head.ele("created", {value: "Sun May 31 13:19:00 2020"});
+        head.ele("modified", {value: "Sun May 31 13:19:00 2020"});
+        head.ele("xMin", {value: "0"});
+        head.ele("yMin", {value: "0"});
+        head.ele("xMax", {value: width});
+        head.ele("yMax", {value: width});
+        head.ele("macStyle", {value: "00000000 00000000"});
+        head.ele("lowestRecPPEM", {value: "8"});
+        head.ele("fontDirectionHint", {value: "2"});
+        head.ele("indexToLocFormat", {value: "0"});
+        head.ele("glyphDataFormat", {value: "0"});
+
+        var hhea = ttFont.ele("hhea");
+        hhea.ele("tableVersion", {value: "0x00010000"});
+        hhea.ele("ascent", {value: width});
+        hhea.ele("descent", {value: "0"});
+        hhea.ele("lineGap", {value: "0"});
+        hhea.ele("advanceWidthMax", {value: width});
+        hhea.ele("minLeftSideBearing", {value: "0"});
+        hhea.ele("minRightSideBearing", {value: "0"});
+        hhea.ele("xMaxExtent", {value: width});
+        hhea.ele("caretSlopeRise", {value: "1"});
+        hhea.ele("caretSlopeRun", {value: "0"});
+        hhea.ele("caretOffset", {value: "0"});
+        hhea.ele("reserved0", {value: "0"});
+        hhea.ele("reserved1", {value: "0"});
+        hhea.ele("reserved2", {value: "0"});
+        hhea.ele("reserved3", {value: "0"});
+        hhea.ele("metricDataFormat", {value: "0"});
+        hhea.ele("numberOfHMetrics", {value: glyphs.length + 1}); // +1 for .notdef
+
+        var cmap = ttFont.ele("cmap");
+        cmap.ele("tableVersion", {version: "0"});
+        // apparently we need to dump the table 4 times, first 16-bit, then 32-bit, then again per platform.
+        // <cmap_format_4 platformID="0" platEncID="3" language="0">
+        // <cmap_format_12 platformID="0" platEncID="4" format="12" reserved="0" length="12640" language="0" nGroups="1052">
+        // <cmap_format_4 platformID="3" platEncID="1" language="0">
+        // <cmap_format_12 platformID="3" platEncID="10" format="12" reserved="0" length="12640" language="0" nGroups="1052">
+
+        var cmap1 = cmap.ele("cmap_format_4", {
+            platformID: 0,
+            platEncID: 3,
+            language: 0,
+        });
+        var cmap2 = cmap.ele("cmap_format_12", {
+            platformID: 0,
+            platEncID: 4,
+            format: 12,
+            reserved: 0,
+            length: 0, // fixed up by ttx
+            language: 0,
+            nGroups: 0, // fixed up by ttx
+        });
+        var cmap3 = cmap.ele("cmap_format_4", {
+            platformID: 3,
+            platEncID: 1,
+            language: 0,
+        });
+        var cmap4 = cmap.ele("cmap_format_12", {
+            platformID: 3,
+            platEncID: 10,
+            format: 12,
+            reserved: 0,
+            length: 0, // fixed up by ttx
+            language: 0,
+            nGroups: 0, // fixed up by ttx
+        });
+        chars.forEach(ch=>{
+            if (ch.unicode.length <= 4) {
+                cmap1.ele("map", {
+                    code: '0x' + ch.unicode,
+                    name: 'u' + ch.unicode,
+                });
+                cmap3.ele("map", {
+                    code: '0x' + ch.unicode,
+                    name: 'u' + ch.unicode,
+                });
+            }
+            cmap2.ele("map", {
+                code: '0x' + ch.unicode,
+                name: 'u' + ch.unicode,
+            });
+            cmap4.ele("map", {
+                code: '0x' + ch.unicode,
+                name: 'u' + ch.unicode,
+            });
+        });
+
+        var loca = ttFont.ele("loca");
+        var glyf = ttFont.ele("glyf");
+        var hmtx = ttFont.ele("hmtx");
+        glyf.ele("TTGlyph", { name: '.notdef' });
+        hmtx.ele("mtx", { name: '.notdef', width: width + kerning, lsb: 0 });
+        glyphs.forEach(function(glyph) {
+            var ttglyph = glyf.ele("TTGlyph", {
+                name: glyph,
+                xMin: 0,
+                yMin: 0,
+                xMax: width,
+                yMax: width,
+            });
+            var contour = ttglyph.ele("contour");
+            contour.ele("pt", { x: 0, y: width-100, on: 1 });
+            contour.ele("pt", { x: width, y: width-100, on: 1 });
+            contour.ele("pt", { x: width, y: -100, on: 1 });
+            contour.ele("pt", { x: 0, y: -100, on: 1 });
+            // contour.ele("pt", { x: 0, y: -100, on: 1 }); // -100 to vertically center within x-height
+            // contour.ele("pt", { x: width, y: width - 100, on: 1 });
+            ttglyph.ele("instructions");
+
+            hmtx.ele("mtx", {
+                name: glyph,
+                width: width + kerning,
+                lsb: 0,
+            })
+        });
+
+        var sbix = ttFont.ele("sbix");
+        sbix.ele("version", {value: 1});
+        sbix.ele("flags", {value: "00000000 00000001"});
+        var strike = sbix.ele("strike");
+        strike.ele("ppem", {value: 72});
+        strike.ele("resolution", {value: 72});
+        strike.ele("glyph", { name: '.notdef' });
+        chars.forEach(function(ch) {
+            try {
+                var data = fs.readFileSync("72x72/" + ch.unicode + ".png");
+                var glyph = strike.ele("glyph", {
+                    graphicType: "png ",
+                    name: "u" + ch.unicode,
+                    originOffsetX: 0,
+                    originOffsetY: 0,
+                });
+                var hex = [];
+                for (const byte of data) {
+                    hex.push(byte.toString(16).padStart(2, '0'));
+                }
+                glyph.ele("hexdata", hex.join(''));
+            }
+            catch(e) {
+                strike.ele("glyph", { name: 'u' + ch.unicode });
+            }
+        });
+        ligatures.forEach(function(lig) {
+            var glyph = strike.ele("glyph", {
+                graphicType: "png ",
+                name: "u" + lig.unicodes.join("_"),
+                originOffsetX: 0,
+                originOffsetY: 0,
+            });
+            var data = fs.readFileSync("72x72/" + lig.unicodes.join("-") + ".png");
+            var hex = [];
+            for (const byte of data) {
+                hex.push(byte.toString(16).padStart(2, '0'));
+            }
+            glyph.ele("hexdata", hex.join(''));
+        });
+    }
+    else {
+        // COLR table records the color layers that make up each colored glyph
+        var COLR = ttFont.ele("COLR");
+        COLR.ele("version", {value: 0});
+        chars.forEach(function(ch) {
+            var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + ch.unicode});
+            ch.components.forEach(function(cmp) {
+                colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+            });
+            layerInfo[ch.unicode] = ch.components.map(function(cmp) { return "u" + cmp.glyphName; });
+        });
+        ligatures.forEach(function(lig) {
+            var colorGlyph = COLR.ele("ColorGlyph", {name: "u" + lig.unicodes.join("_")});
+            lig.components.forEach(function(cmp) {
+                colorGlyph.ele("layer", {colorID: colorToId[cmp.color], name: "u" + cmp.glyphName});
+            });
+            layerInfo[lig.unicodes.join("_")] = lig.components.map(function(cmp) { return "u" + cmp.glyphName; });
+        });
+        fs.writeFileSync(targetDir + "/layer_info.json", JSON.stringify(layerInfo, null, 2));
+
+        // CPAL table maps color index values to RGB colors
+        var CPAL = ttFont.ele("CPAL");
+        CPAL.ele("version", {value: 0});
+        CPAL.ele("numPaletteEntries", {value: colors.length});
+        var palette = CPAL.ele("palette", {index: 0});
+        var index = 0;
+        colors.forEach(function(c) {
+            if (c.substr(0, 3) == "url") {
+                console.log("unexpected color: " + c);
+                c = "#000000ff";
+            }
+            palette.ele("color", {index: index, value: c});
+            index = index + 1;
+        });
+    }
 
     // GSUB table implements the ligature rules for Regional Indicator pairs and emoji-ZWJ sequences
     var GSUB = ttFont.ele("GSUB");
