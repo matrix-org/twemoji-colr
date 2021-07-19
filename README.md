@@ -15,13 +15,13 @@ if they try to use this font.
 
 This project makes use of [grunt-webfont](https://github.com/sapegin/grunt-webfont)
 and an additional [node.js](https://nodejs.org/en/) script.
-Therefore, installation of Node.js (and its package manager [npm](https://www.npmjs.com/)) is a prerequisite.
+Therefore, installation of Node.js (and the package manager [yarn](https://classic.yarnpkg.com/en/)) is a prerequisite.
 Grunt will be installed as a package dependency — no need to install it globally.
 
-The necessary tools can be installed via npm:
+The necessary tools can be installed via yarn:
 
     # install dependencies from packages.json, including `grunt-webfont`.
-    npm install
+    yarn
 
 The build process also requires [fontforge](https://fontforge.github.io/)
 and the TTX script from the [font-tools](https://github.com/behdad/fonttools/) package to be installed, and assumes standard Perl and Python are available.
@@ -50,16 +50,6 @@ You can then compress this into a WOFF via `woff2_compress`
 
 This branch contains a fairly ugly attempt to support emitting an sbix font as an alternative
 to COLR/CPAL.  For this to work:
-
- * make sure you're on node 10 (it won't build on 12 or later):
-
-```
-brew install node@10
-export PATH="/usr/local/opt/node@10/bin:$PATH"
-export LDFLAGS="-L/usr/local/opt/node@10/lib"
-export CPPFLAGS="-I/usr/local/opt/node@10/include"
-npm install
-```
 
  * Grab the latest twemoji release from https://github.com/twitter/twemoji/releases
  * Expand it and symlink the `2/72x72` (or `assets/72x72` for twemoji 13) directory into this checkout

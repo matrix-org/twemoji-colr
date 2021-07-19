@@ -38,5 +38,8 @@
   },
   "scripts": {
     "grunt": "grunt"
+  },
+  "resolutions": {
+    "graceful-fs": "^4.2.4"
   }
 }
