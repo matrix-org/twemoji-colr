@@ -34,6 +34,7 @@ $(FINAL_TARGET) : $(RAW_FONT) $(OT_SOURCE)
 	        -e '}' $(RAW_FONT).names
 	$(TTX) -m $(RAW_FONT) -o $(RAW_FONT).renamed.ttf $(RAW_FONT).names
 	$(PYTHON) fixDirection.py $(RAW_FONT).renamed.ttf
+	$(PYTHON) fixMonochrome.py $(RAW_FONT).renamed.ttf
 	$(TTX) -m $(RAW_FONT).renamed.ttf -o $(FINAL_TARGET) $(OT_SOURCE)
 
 $(RAW_FONT) : $(CODEPOINTS) $(GRUNTFILE)

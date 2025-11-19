@@ -26,6 +26,11 @@ The necessary tools can be installed via yarn:
 The build process also requires [fontforge](https://fontforge.github.io/)
 and the TTX script from the [font-tools](https://github.com/behdad/fonttools/) package to be installed, and assumes standard Perl and Python are available.
 
+N.B. grunt-webfont is getting very old now, and may require
+`node_modules/grunt-webfont/tasks/engines/fontforge/generate.py` to be manually patched to use
+`from shutil import which` rather than `from distutils.spawn import find_executable` otherwise
+it will incorrectly complain about fontforge not being installed.
+
 Both FontForge and font-tools can be installed via `homebrew` on OS X, or package managers on Linux:
 
     # OS X
