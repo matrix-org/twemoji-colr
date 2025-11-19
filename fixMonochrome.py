@@ -12,6 +12,7 @@ monochrome_codepoints = [
     'u2714', 'u2716', 'u2734', 'u2795', 'u2796', 'u2797', 'u27b0',
     'u1f4b2', 'u1f519', 'u1f51a', 'u1f51b', 'u1f51c', 'u1f51d', 'u1f7f0',
     'u25fc', 'u25fe', 'u26ab', 'u1f5a4', # solids
+    'u3030', # wavy-dash
 ]
 
 doc = minidom.parse(fontfile)
@@ -36,7 +37,6 @@ for color_glyph in colr.getElementsByTagName('ColorGlyph'):
         # replace the contours of the base glyph with the merged contours of
         # the layer within.
         while baseglyph.firstChild:
-            print(f"removing child {baseglyph.firstChild} from TTGlyph {baseglyph.getAttribute('name')}")
             baseglyph.removeChild(baseglyph.firstChild)
 
         first_layer = True
@@ -59,7 +59,6 @@ for color_glyph in colr.getElementsByTagName('ColorGlyph'):
                 if ttglyph.getAttribute('name') == layer.getAttribute('name'):
                     for child in ttglyph.childNodes:
                         # XXX: do we need to worry about different metrics for the contours we smash together here?
-                        print(f"appending child {child} to {ttglyph.getAttribute('name')}")
                         baseglyph.appendChild(child.cloneNode(deep=True))
                     break
 
