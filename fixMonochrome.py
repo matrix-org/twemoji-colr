@@ -6,13 +6,33 @@ fontfile = sys.argv[1]
 
 # codepoints to monochromise
 # to fix https://github.com/element-hq/element-web/issues/14695
+# we exclude any with BLACK in the name, to avoid lying about colours
 monochrome_codepoints = [
-    'ua9', 'uae',
-    'u2122', 'u2660', 'u2663', 'u25aa',
-    'u2714', 'u2716', 'u2734', 'u2795', 'u2796', 'u2797', 'u27b0',
-    'u1f4b2', 'u1f519', 'u1f51a', 'u1f51b', 'u1f51c', 'u1f51d', 'u1f7f0',
-    'u25fc', 'u25fe', 'u26ab', 'u1f5a4', # solids
-    'u3030', # wavy-dash
+    'ua9', # COPYRIGHT SIGN
+    'uae', # REGISTERED SIGN
+    'u2122', # TRADE MARK SIGN
+    # 'u25aa', # BLACK SMALL SQUARE
+    # 'u25fc', # BLACK MEDIUM SQUARE
+    # 'u25fe', # BLACK MEDIUM SMALL SQUARE
+    # 'u2660', # BLACK SPADE SUIT
+    # 'u2663', # BLACK CLUB SUIT
+    # 'u26ab', # MEDIUM BLACK CIRCLE
+    'u2714', # HEAVY CHECK MARK
+    'u2716', # HEAVY MULTIPLICATION X
+    # 'u2734', # EIGHT POINTED BLACK STAR
+    'u2795', # HEAVY PLUS SIGN
+    'u2796', # HEAVY MINUS SIGN
+    'u2797', # HEAVY DIVISION SIGN
+    'u27b0', # CURLY LOOP
+    # 'u2b1b', # BLACK LARGE SQUARE
+    'u3030', # WAVY DASH
+    'u1f4b2', # HEAVY DOLLAR SIGN
+    'u1f519', # BACK WITH LEFTWARDS ARROW ABOVE
+    'u1f51a', # END WITH LEFTWARDS ARROW ABOVE
+    'u1f51b', # ON WITH EXCLAMATION MARK WITH LEFT RIGHT ARROW ABOVE
+    'u1f51c', # SOON WITH RIGHTWARDS ARROW ABOVE
+    'u1f51d', # TOP WITH UPWARDS ARROW ABOVE
+    'u1f7f0', # HEAVY EQUALS SIGN    
 ]
 
 doc = minidom.parse(fontfile)
