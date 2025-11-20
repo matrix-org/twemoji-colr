@@ -1,2 +1,5 @@
 Any .svg files placed here, with names that match items in the main twe-svg.zip archive,
 will be used in place of the originals from there.
+
+1f979 and 1f97a are overridden due to bugs in the SVGs:
+  https://github.com/jdecked/twemoji/commit/dbb2a105307932399402c5333001e82ba67af016#commitcomment-124376242

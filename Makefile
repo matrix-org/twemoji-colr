@@ -1,7 +1,7 @@
 NPM        ?= npm
 NODE       ?= node
 PERL       ?= perl
-PYTHON     ?= python
+PYTHON     ?= python3
 TTX        ?= ttx
 
 FONT_NAME  = Twemoji\ Mozilla
@@ -35,6 +35,11 @@ $(FINAL_TARGET) : $(RAW_FONT) $(OT_SOURCE)
 	$(TTX) -m $(RAW_FONT) -o $(RAW_FONT).renamed.ttf $(RAW_FONT).names
 	$(PYTHON) fixDirection.py $(RAW_FONT).renamed.ttf
 	$(TTX) -m $(RAW_FONT).renamed.ttf -o $(FINAL_TARGET) $(OT_SOURCE)
+	$(TTX) $(FINAL_TARGET) -o $(FINAL_TARGET).ttx
+	$(PYTHON) fixMonochrome.py $(FINAL_TARGET).ttx
+	rm $(FINAL_TARGET)
+	$(TTX) $(FINAL_TARGET).ttx -o $(FINAL_TARGET)
+
 
 $(RAW_FONT) : $(CODEPOINTS) $(GRUNTFILE)
 	$(NPM) run grunt webfont
