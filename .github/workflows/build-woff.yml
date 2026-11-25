@@ -1,0 +1,40 @@
+name: Build WOFF font
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26
+          cache: yarn
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fontforge python3-fontforge fonttools woff2 perl
+
+      - name: Install node dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build font
+        run: make NPM=yarn PYTHON=/usr/bin/python3
+
+      - name: Compress to WOFF2
+        run: |
+          cp "build/Twemoji Mozilla.ttf" build/TwemojiMozilla.ttf
+          woff2_compress build/TwemojiMozilla.ttf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: twemoji-mozilla-woff2
+          path: |
+            build/TwemojiMozilla.woff2
+            build/TwemojiMozilla.ttf
