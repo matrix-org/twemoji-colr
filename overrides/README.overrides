@@ -1,2 +1,10 @@
 Any .svg files placed here, with names that match items in the main twe-svg.zip archive,
 will be used in place of the originals from there.
+
+1f979 and 1f97a are overridden due to bugs in the SVGs:
+  https://github.com/jdecked/twemoji/commit/dbb2a105307932399402c5333001e82ba67af016#commitcomment-124376242
+
+1f3a7 is because we want our headphone emoji without the music notes (so they can represent being on a call too)
+  This image is contributed from Sable (https://git.sable.moe/SableClient/twemoji) by @j0lol from on
+  https://github.com/element-hq/element-web/pull/35890 where it is released under the terms of the Creative
+  Commons Attribution 4.0 International license.
